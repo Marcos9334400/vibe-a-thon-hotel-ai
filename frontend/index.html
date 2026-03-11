@@ -1,13 +1,280 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+    <meta charset="UTF-8">
+    <title>AI Hotel Booking - Web3</title>
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: Arial, sans-serif; background:#0f0f1a; color:white; }
+        .header { background:#1a1a2e; padding:20px; text-align:center; }
+        .header h1 { color:#00d4ff; font-size:2rem; }
+        .header p { color:#888; margin-top:5px; }
+        .wallet-bar { background:#1a1a2e; padding:10px 20px; text-align:right; border-bottom:1px solid #333; }
+        .container { max-width:1000px; margin:30px auto; padding:0 20px; }
+        .card { background:#1a1a2e; border-radius:12px; padding:25px; margin-bottom:20px; border:1px solid #333; }
+        .card h2 { color:#00d4ff; margin-bottom:15px; }
+        input, textarea { width:100%; padding:12px; background:#0f0f1a; border:1px solid #333; border-radius:8px; color:white; margin-bottom:10px; font-size:1rem; }
+        button { background:#00d4ff; color:#0f0f1a; border:none; padding:12px 25px; border-radius:8px; cursor:pointer; font-size:1rem; font-weight:bold; margin-right:10px; margin-top:5px; }
+        button:hover { background:#00b8d9; }
+        button.danger { background:#ff4757; color:white; }
+        button.success { background:#2ed573; color:#0f0f1a; }
+        .hotel-card { background:#0f0f1a; border-radius:8px; padding:15px; margin:10px 0; border-left:4px solid #00d4ff; }
+        .trust-high { border-left-color:#2ed573; }
+        .trust-low { border-left-color:#ff4757; }
+        .badge { display:inline-block; padding:4px 12px; border-radius:20px; font-size:0.8rem; font-weight:bold; }
+        .badge-safe { background:#2ed573; color:#0f0f1a; }
+        .badge-warn { background:#ffa502; color:#0f0f1a; }
+        .badge-danger { background:#ff4757; color:white; }
+        .result { background:#0f0f1a; border-radius:8px; padding:15px; margin-top:15px; border:1px solid #333; display:none; }
+        .result.show { display:block; }
+        .loading { color:#888; }
+        .ok { color:#2ed573; }
+        .err { color:#ff4757; }
+        .grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+        a { color:#00d4ff; }
+        @media(max-width:600px){ .grid { grid-template-columns:1fr; } }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🏨 AI Hotel Booking</h1>
+    <p>AI Fraud Detection + Blockchain Escrow + Tamper-proof Reviews</p>
+</div>
+
+<div class="wallet-bar">
+    <span id="walletStatus">🔴 Not Connected</span>
+    <button onclick="connectWallet()" style="margin-left:10px;padding:6px 15px;font-size:0.85rem;">
+        Connect Wallet
+    </button>
+</div>
+
+<div class="container">
+
+    <div class="card">
+        <h2>🔍 Search Hotels — AI Fraud Check</h2>
+        <input id="searchCity" placeholder="Enter city (Mumbai, Delhi, Bangalore...)">
+        <button onclick="searchHotels()">Search + AI Analyze</button>
+        <div id="hotelResults"></div>
+    </div>
+
+    <div class="card">
+        <h2>🏢 List Your Hotel on Blockchain</h2>
+        <div class="grid">
+            <input id="hotelName" placeholder="Hotel Name">
+            <input id="hotelLocation" placeholder="Location">
+        </div>
+        <input id="hotelPrice" type="number" placeholder="Price in ETH (e.g. 0.02)" step="0.001">
+        <button onclick="listHotel()">List Hotel</button>
+        <div id="listResult" class="result"></div>
+    </div>
+
+    <div class="card">
+        <h2>📋 Book Hotel — Payment Goes to Escrow</h2>
+        <div class="grid">
+            <input id="bookHotelId" type="number" placeholder="Hotel ID">
+            <input id="bookAmount" type="number" placeholder="Amount ETH (e.g. 0.02)" step="0.001">
+        </div>
+        <button onclick="bookHotel()">Book + Lock in Escrow</button>
+        <div id="bookResult" class="result"></div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h2>✅ Confirm Check-In</h2>
+            <p style="color:#888;font-size:0.9rem;margin-bottom:10px">Releases payment to hotel</p>
+            <input id="confirmId" type="number" placeholder="Booking ID">
+            <button class="success" onclick="confirmCheckIn()">Confirm Check-In</button>
+            <div id="confirmResult" class="result"></div>
+        </div>
+        <div class="card">
+            <h2>❌ Cancel Booking</h2>
+            <p style="color:#888;font-size:0.9rem;margin-bottom:10px">Auto-refunds your ETH</p>
+            <input id="cancelId" type="number" placeholder="Booking ID">
+            <button class="danger" onclick="cancelBooking()">Cancel + Refund</button>
+            <div id="cancelResult" class="result"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>⚖️ Raise Dispute — AI Decides</h2>
+        <input id="disputeId" type="number" placeholder="Booking ID">
+        <textarea id="disputeText" rows="3" placeholder="Describe your complaint..."></textarea>
+        <button class="danger" onclick="raiseDispute()">Raise Dispute + AI Resolution</button>
+        <div id="disputeResult" class="result"></div>
+    </div>
+
+    <div class="card">
+        <h2>⭐ Submit Review — Permanent on Blockchain</h2>
+        <div class="grid">
+            <input id="reviewHotelId" type="number" placeholder="Hotel ID">
+            <input id="reviewRating" type="number" placeholder="Rating (1-5)" min="1" max="5">
+        </div>
+        <textarea id="reviewText" rows="2" placeholder="Write your review..."></textarea>
+        <button onclick="submitReview()">Submit Review Forever</button>
+        <div id="reviewResult" class="result"></div>
+    </div>
+
+</div>
+
+<script>
+const CONTRACT_ADDRESS = "YOUR_CONTRACT_ADDRESS_HERE";
+const ABI = [
+    "function listHotel(string memory _name, string memory _location, uint256 _pricePerNight) public",
+    "function bookHotel(uint256 _hotelId) public payable",
+    "function confirmCheckIn(uint256 _bookingId) public",
+    "function cancelBooking(uint256 _bookingId) public",
+    "function submitReview(uint256 _hotelId, uint8 _rating, string memory _comment) public",
+    "function raiseDispute(uint256 _bookingId) public",
+    "function getHotel(uint256 _hotelId) public view returns (tuple(string name, string location, uint256 pricePerNight, bool isActive, uint256 trustScore, address owner))",
+    "function hotelCount() public view returns (uint256)"
+];
+
+const HOTELS = [
+    { id:1, name:"Airport Inn", location:"Mumbai", price:"0.015" },
+    { id:2, name:"Hotel Sky", location:"Mumbai", price:"0.02" },
+    { id:3, name:"Cheap Stay 99", location:"Mumbai", price:"0.001" },
+    { id:4, name:"Grand Palace", location:"Delhi", price:"0.03" },
+    { id:5, name:"Budget Rooms", location:"Delhi", price:"0.008" },
+];
+
+let provider, signer, contract;
+
+async function connectWallet() {
+    if (!window.ethereum) { alert("Install MetaMask!"); return; }
+    await window.ethereum.request({ method:'eth_requestAccounts' });
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    signer = provider.getSigner();
+    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+    const addr = await signer.getAddress();
+    document.getElementById('walletStatus').innerHTML =
+        `<span style="color:#2ed573">🟢 ${addr.slice(0,6)}...${addr.slice(-4)}</span>`;
+}
+
+function showResult(id, html, type) {
+    const el = document.getElementById(id);
+    el.className = 'result show';
+    el.innerHTML = `<div class="${type}">${html}</div>`;
+}
+
+async function searchHotels() {
+    const city = document.getElementById('searchCity').value.toLowerCase();
+    const div = document.getElementById('hotelResults');
+    div.innerHTML = '<br><div class="loading">🤖 AI analyzing hotels for fraud...</div>';
+    const found = HOTELS.filter(h => h.location.toLowerCase().includes(city));
+    if (!found.length) { div.innerHTML = '<br><div class="err">No hotels found.</div>'; return; }
+    let html = '<br>';
+    for (const h of found) {
+        const res = await fetch('http://localhost:3001/check-fraud', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ hotelName:h.name, location:h.location, priceInEth:h.price })
+        });
+        const { score, reason } = await res.json();
+        const cls = score>=70 ? 'trust-high' : score>=40 ? '' : 'trust-low';
+        const badge = score>=70 ? 'badge-safe' : score>=40 ? 'badge-warn' : 'badge-danger';
+        const label = score>=70 ? '✅ SAFE' : score>=40 ? '⚠️ CAUTION' : '🚨 SUSPICIOUS';
+        html += `<div class="hotel-card ${cls}">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <strong>${h.name}</strong>
+                <span class="badge ${badge}">${label} ${score}/100</span>
+            </div>
+            <div style="color:#888;font-size:0.9rem;margin-top:5px">
+                📍 ${h.location} &nbsp;|&nbsp; 💰 ${h.price} ETH/night
+            </div>
+            <div style="color:#aaa;font-size:0.85rem;margin-top:5px">AI: ${reason}</div>
+            <div style="margin-top:10px">
+                <strong>ID: ${h.id}</strong>
+                ${score>=40
+                    ? `<button onclick="document.getElementById('bookHotelId').value=${h.id}" style="margin-left:10px;padding:6px 12px;font-size:0.85rem">Book This</button>`
+                    : '<span style="color:#ff4757;margin-left:10px">❌ Blocked by AI</span>'}
+            </div>
+        </div>`;
+    }
+    div.innerHTML = html;
+}
+
+async function listHotel() {
+    if (!contract) { alert("Connect wallet!"); return; }
+    showResult('listResult', '⏳ Listing on blockchain...', 'loading');
+    try {
+        const tx = await contract.listHotel(
+            document.getElementById('hotelName').value,
+            document.getElementById('hotelLocation').value,
+            ethers.utils.parseEther(document.getElementById('hotelPrice').value)
+        );
+        await tx.wait();
+        showResult('listResult', `✅ Hotel listed!<br>🔗 <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank">View on Explorer</a>`, 'ok');
+    } catch(e) { showResult('listResult', `❌ ${e.message}`, 'err'); }
+}
+
+async function bookHotel() {
+    if (!contract) { alert("Connect wallet!"); return; }
+    showResult('bookResult', '⏳ Locking payment in escrow...', 'loading');
+    try {
+        const tx = await contract.bookHotel(
+            document.getElementById('bookHotelId').value,
+            { value: ethers.utils.parseEther(document.getElementById('bookAmount').value) }
+        );
+        await tx.wait();
+        showResult('bookResult', `✅ Booked! Payment locked in escrow.<br>Hotel gets paid only after check-in.<br>🔗 <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank">View on Explorer</a>`, 'ok');
+    } catch(e) { showResult('bookResult', `❌ ${e.message}`, 'err'); }
+}
+
+async function confirmCheckIn() {
+    if (!contract) { alert("Connect wallet!"); return; }
+    showResult('confirmResult', '⏳ Confirming check-in...', 'loading');
+    try {
+        const tx = await contract.confirmCheckIn(document.getElementById('confirmId').value);
+        await tx.wait();
+        showResult('confirmResult', `✅ Check-in confirmed! Payment released to hotel.<br>🔗 <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank">View on Explorer</a>`, 'ok');
+    } catch(e) { showResult('confirmResult', `❌ ${e.message}`, 'err'); }
+}
+
+async function cancelBooking() {
+    if (!contract) { alert("Connect wallet!"); return; }
+    showResult('cancelResult', '⏳ Cancelling...', 'loading');
+    try {
+        const tx = await contract.cancelBooking(document.getElementById('cancelId').value);
+        await tx.wait();
+        showResult('cancelResult', `✅ Cancelled! ETH refunded.<br>🔗 <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank">View on Explorer</a>`, 'ok');
+    } catch(e) { showResult('cancelResult', `❌ ${e.message}`, 'err'); }
+}
+
+async function raiseDispute() {
+    if (!contract) { alert("Connect wallet!"); return; }
+    showResult('disputeResult', '⏳ Raising dispute on blockchain...', 'loading');
+    try {
+        const tx = await contract.raiseDispute(document.getElementById('disputeId').value);
+        await tx.wait();
+        showResult('disputeResult', '🤖 Dispute raised! AI is analyzing complaint...', 'loading');
+        const res = await fetch('http://localhost:3001/resolve-dispute', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({
+                bookingId: document.getElementById('disputeId').value,
+                complaint: document.getElementById('disputeText').value
+            })
+        });
+        const { refund, reason } = await res.json();
+        showResult('disputeResult',
+            `⚖️ AI Decision: <strong>${refund ? '✅ REFUND APPROVED' : '❌ NO REFUND'}</strong><br>
+            Reason: ${reason}`, 'ok');
+    } catch(e) { showResult('disputeResult', `❌ ${e.message}`, 'err'); }
+}
+
+async function submitReview() {
+    if (!contract) { alert("Connect wallet!"); return; }
+    showResult('reviewResult', '⏳ Storing on blockchain forever...', 'loading');
+    try {
+        const tx = await contract.submitReview(
+            document.getElementById('reviewHotelId').value,
+            parseInt(document.getElementById('reviewRating').value),
+            document.getElementById('reviewText').value
+        );
+        await tx.wait();
+        showResult('reviewResult', `✅ Review permanent on blockchain!<br>Hotel can NEVER delete this.<br>🔗 <a href="https://sepolia.etherscan.io/tx/${tx.hash}" target="_blank">View on Explorer</a>`, 'ok');
+    } catch(e) { showResult('reviewResult', `❌ ${e.message}`, 'err'); }
+}
+</script>
+</body>
 </html>
