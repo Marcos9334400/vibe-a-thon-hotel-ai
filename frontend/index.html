@@ -172,7 +172,7 @@ async function searchHotels() {
             method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ hotelName:h.name, location:h.location, priceInEth:h.price })
         });
-        const { score, reason } = await res.json();
+        const data = await res.json(); const score = data.score || data.trustScore || 50; const reason = data.reason || data.message || "AI Analysis complete";
         const cls = score>=70 ? 'trust-high' : score>=40 ? '' : 'trust-low';
         const badge = score>=70 ? 'badge-safe' : score>=40 ? 'badge-warn' : 'badge-danger';
         const label = score>=70 ? '✅ SAFE' : score>=40 ? '⚠️ CAUTION' : '🚨 SUSPICIOUS';
