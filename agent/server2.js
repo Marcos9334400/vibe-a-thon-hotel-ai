@@ -8,7 +8,11 @@ console.log('GROQ_API_KEY:', process.env.GROQ_API_KEY);
 const groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Payment']
+}));
 app.use(express.json());
 
 const PAY_TO = process.env.PAY_TO_ADDRESS;

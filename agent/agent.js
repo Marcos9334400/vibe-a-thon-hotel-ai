@@ -18,7 +18,7 @@ const contract = new ethers.Contract(process.env.CONTRACT_ADDRESS, CONTRACT_ABI,
 async function checkHotelFraud(hotelName, location, priceInEth) {
     console.log(`\n🔍 AI checking: ${hotelName}...`);
     const response = await groq.chat.completions.create({
-        model: "llama3-8b-8192",
+        model: "llama-3.1-8b-instant",
         messages: [{
             role: "user",
             content: `You are a hotel fraud detection AI.
@@ -38,7 +38,7 @@ REASON: [one sentence]`
 async function resolveDisputeWithAI(bookingId, complaint, hotelName) {
     console.log(`\n⚖️ AI resolving dispute #${bookingId}...`);
     const response = await groq.chat.completions.create({
-        model: "llama3-8b-8192",
+        model: "llama-3.1-8b-instant",
         messages: [{
             role: "user",
             content: `You are a dispute resolution AI.

@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <title>AI Hotel Booking - Web3</title>
-    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="/wallet.js"></script>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         body { font-family: Arial, sans-serif; background:#0f0f1a; color:white; }
@@ -133,25 +134,35 @@ const ABI = [
     "function hotelCount() public view returns (uint256)"
 ];
 
-const HOTELS = [
-    { id:1, name:"Airport Inn", location:"Mumbai", price:"0.015" },
-    { id:2, name:"Hotel Sky", location:"Mumbai", price:"0.02" },
-    { id:3, name:"Cheap Stay 99", location:"Mumbai", price:"0.001" },
-    { id:4, name:"Grand Palace", location:"Delhi", price:"0.03" },
-    { id:5, name:"Budget Rooms", location:"Delhi", price:"0.008" },
-];
+
 
 let provider, signer, contract;
 
 async function connectWallet() {
-    if (!window.ethereum) { alert("Install MetaMask!"); return; }
-    await window.ethereum.request({ method:'eth_requestAccounts' });
+  if (typeof window.ethereum === 'undefined') {
+    alert('MetaMask not found! Install from metamask.io');
+    return;
+  }
+  try {
+    await window.ethereum.request({ method: 'eth_requestAccounts' });
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0xaa36a7' }]
+      });
+    } catch (switchError) {
+      console.log('Network switch:', switchError.message);
+    }
     provider = new ethers.providers.Web3Provider(window.ethereum);
     signer = provider.getSigner();
     contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
     const addr = await signer.getAddress();
     document.getElementById('walletStatus').innerHTML =
-        `<span style="color:#2ed573">🟢 ${addr.slice(0,6)}...${addr.slice(-4)}</span>`;
+      `<span style="color:#2ed573">🟢 ${addr.slice(0,6)}...${addr.slice(-4)}</span>`;
+    console.log('✅ Wallet connected:', addr);
+  } catch (error) {
+    alert('Connection failed: ' + error.message);
+  }
 }
 
 function showResult(id, html, type) {
@@ -159,43 +170,45 @@ function showResult(id, html, type) {
     el.className = 'result show';
     el.innerHTML = `<div class="${type}">${html}</div>`;
 }
-
 async function searchHotels() {
-    const city = document.getElementById('searchCity').value.toLowerCase();
+    const city = document.getElementById('searchCity').value;
+    if (!city) { alert("Enter a city or landmark!"); return; }
     const div = document.getElementById('hotelResults');
-    div.innerHTML = '<br><div class="loading">🤖 AI analyzing hotels for fraud...</div>';
-    const found = HOTELS.filter(h => h.location.toLowerCase().includes(city));
-    if (!found.length) { div.innerHTML = '<br><div class="err">No hotels found.</div>'; return; }
-    let html = '<br>';
-    for (const h of found) {
-        const res = await fetch('http://localhost:3001/check-fraud', {
-            method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ hotelName:h.name, location:h.location, priceInEth:h.price })
+    div.innerHTML = '<br><div class="loading">🤖 AI finding hotels near ' + city + '...</div>';
+    try {
+        const res = await fetch('http://localhost:3001/search-hotels', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ city })
         });
-        const data = await res.json(); const score = data.score || data.trustScore || 50; const reason = data.reason || data.message || "AI Analysis complete";
-        const cls = score>=70 ? 'trust-high' : score>=40 ? '' : 'trust-low';
-        const badge = score>=70 ? 'badge-safe' : score>=40 ? 'badge-warn' : 'badge-danger';
-        const label = score>=70 ? '✅ SAFE' : score>=40 ? '⚠️ CAUTION' : '🚨 SUSPICIOUS';
-        html += `<div class="hotel-card ${cls}">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-                <strong>${h.name}</strong>
-                <span class="badge ${badge}">${label} ${score}/100</span>
-            </div>
-            <div style="color:#888;font-size:0.9rem;margin-top:5px">
-                📍 ${h.location} &nbsp;|&nbsp; 💰 ${h.price} ETH/night
-            </div>
-            <div style="color:#aaa;font-size:0.85rem;margin-top:5px">AI: ${reason}</div>
-            <div style="margin-top:10px">
-                <strong>ID: ${h.id}</strong>
-                ${score>=40
-                    ? `<button onclick="document.getElementById('bookHotelId').value=${h.id}" style="margin-left:10px;padding:6px 12px;font-size:0.85rem">Book This</button>`
-                    : '<span style="color:#ff4757;margin-left:10px">❌ Blocked by AI</span>'}
-            </div>
-        </div>`;
+        const { hotels } = await res.json();
+        let html = '<br>';
+        for (const h of hotels) {
+            const badge = h.score>=70 ? 'badge-safe' : h.score>=40 ? 'badge-warn' : 'badge-danger';
+            const label = h.score>=70 ? '✅ SAFE' : h.score>=40 ? '⚠️ CAUTION' : '🚨 SUSPICIOUS';
+            const cls = h.score>=70 ? 'trust-high' : h.score>=40 ? '' : 'trust-low';
+            html += `<div class="hotel-card ${cls}">
+                <div style="display:flex;justify-content:space-between;align-items:center">
+                    <strong>${h.name}</strong>
+                    <span class="badge ${badge}">${label} ${h.score}/100</span>
+                </div>
+                <div style="color:#888;font-size:0.9rem;margin-top:5px">
+                    📍 ${h.location} &nbsp;|&nbsp; 💰 ${h.price} ETH/night
+                </div>
+                <div style="color:#aaa;font-size:0.85rem;margin-top:5px">AI: ${h.reason}</div>
+                <div style="margin-top:10px">
+                    <strong>ID: ${h.id}</strong>
+                    ${h.score>=40
+                        ? `<button onclick="document.getElementById('bookHotelId').value=${h.id}" style="margin-left:10px;padding:6px 12px;font-size:0.85rem">Book This</button>`
+                        : '<span style="color:#ff4757;margin-left:10px">❌ Blocked by AI</span>'}
+                </div>
+            </div>`;
+        }
+        div.innerHTML = html;
+    } catch(e) {
+        div.innerHTML = '<br><div class="err">❌ AI server not running!</div>';
     }
-    div.innerHTML = html;
 }
-
 async function listHotel() {
     if (!contract) { alert("Connect wallet!"); return; }
     showResult('listResult', '⏳ Listing on blockchain...', 'loading');
